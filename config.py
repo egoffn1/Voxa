@@ -2,22 +2,26 @@
 Voxa Client Configuration
 """
 
-# Server URL - измените на адрес вашего сервера Voxa
-SERVER_URL = "http://localhost:5000"
-
-# Endpoints
+SERVER_URL = "https://voxa-server-1xhr.onrender.com"
 CHAT_ENDPOINT = "/chat"
 
-# Recognition settings
-RECOGNITION_ENGINE = "google"  # 'google', 'vosk', или 'whisper'
-ENERGY_THRESHOLD = 4000  # Порог энергии для обнаружения речи
-PAUSE_THRESHOLD = 0.8  # Пауза для определения конца фразы (секунды)
+# Настройки распознавания
+RECOGNITION_ENGINE = "google"
+ENERGY_THRESHOLD = 4000
+PAUSE_THRESHOLD = 0.8
 
-# TTS settings
-TTS_RATE = 150  # Скорость речи (слова в минуту)
-TTS_VOLUME = 1.0  # Громкость (0.0 - 1.0)
+# Настройки активации по имени
+WAKE_WORD_ENABLED = True
+WAKE_WORDS = ["вокс", "воха", "вокса", "привет вокс", "окей вокс"]
+WAKE_SENSITIVITY = 0.6
 
-# Local commands
+# Настройки синтеза речи
+TTS_ENGINE = "silero"  # 'pyttsx3' или 'silero'
+TTS_RATE = 150
+TTS_VOLUME = 1.0
+SILERO_SPEAKER = "xenia"  # 'xenia' или 'baya'
+
+# Команды
 EXIT_COMMANDS = ["выход", "пока", "завершить работу", "выйти", "стоп"]
 REPEAT_COMMANDS = ["повтори", "повтори последнее", "еще раз"]
 CLEAR_CHAT_COMMANDS = ["очисти чат", "забудь всё", "новый диалог", "очистить чат"]

@@ -1,30 +1,33 @@
+# --- Server Dependencies (если запускаете сервер локально) ---
 flask==3.0.0
 flask-cors==4.0.0
 mistralai==1.2.6
 python-dotenv==1.0.0
 gunicorn==21.2.0
 
-# Client dependencies
-# Правильное имя пакета в PyPI — SpeechRecognition (с заглавной S)
+# --- Client Dependencies ---
+
+# Распознавание речи
 SpeechRecognition>=3.10.0
-pyttsx3>=2.90
+
+# Сетевые запросы
 requests>=2.31.0
 
-# Audio dependencies для микрофона:
-# ВАЖНО: И PyAudio, и sounddevice требуют системную библиотеку PortAudio.
-#
-# Вариант 1: PyAudio (классический метод)
-#   - Linux (Fedora/Bazzite): sudo rpm-ostree install portaudio-devel python3-pyaudio
-#   - Debian/Ubuntu: sudo apt-get install portaudio19-dev python3-pyaudio
-#   - macOS: brew install portaudio && pip install pyaudio
-#   - Windows: pip install pipwin && pipwin install pyaudio
-# pyaudio>=0.2.13
-
-# Вариант 2: sounddevice (альтернатива, также требует PortAudio)
-# Если при запуске ошибка "PortAudio library not found":
-#   - Bazzite/Fedora: sudo rpm-ostree install portaudio && systemctl reboot
+# Аудио-ввод (микрофон)
+# Требует системную библиотеку PortAudio:
+# Bazzite/Fedora: sudo rpm-ostree install portaudio && systemctl reboot
 sounddevice>=0.4.6
 numpy>=1.20.0
 
-# Если вы не хотите устанавливать PortAudio, клиент автоматически запустится
-# в текстовом режиме (ввод текста с клавиатуры без голосового ввода).
+# --- Нейросетевой синтез речи (Silero TTS) ---
+# Требуется для качественного человеческого голоса
+torch>=2.0.0
+torchaudio>=2.0.0
+pyyaml>=6.0
+
+# Воспроизведение аудио (для Silero)
+simpleaudio>=1.0.4
+
+# --- Резервный синтез речи (офлайн) ---
+# Используется если Silero не загрузился или для экономии ресурсов
+pyttsx3>=2.90
