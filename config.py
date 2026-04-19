@@ -15,12 +15,6 @@ WAKE_WORD_ENABLED = True
 WAKE_WORDS = ["вокс", "воха", "вокса", "привет вокс", "окей вокс"]
 WAKE_SENSITIVITY = 0.6
 
-# Настройки синтеза речи
-TTS_ENGINE = "silero"  # 'pyttsx3' или 'silero'
-TTS_RATE = 150
-TTS_VOLUME = 1.0
-SILERO_SPEAKER = "xenia"  # 'xenia' или 'baya'
-
 # Команды
 EXIT_COMMANDS = ["выход", "пока", "завершить работу", "выйти", "стоп"]
 REPEAT_COMMANDS = ["повтори", "повтори последнее", "еще раз"]
