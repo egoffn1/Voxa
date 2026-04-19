@@ -291,12 +291,17 @@ class VoxaClient:
         url = f"{SERVER_URL}{CHAT_ENDPOINT}"
         
         payload = {
-            "text": text,
+            "message": text,
             "session_id": self.session_id
         }
         
         try:
             response = requests.post(url, json=payload, timeout=30)
+            
+            # Проверка статуса ответа
+            if response.status_code == 400:
+                print(f"⚠️ Детали ошибки от сервера: {response.text}")
+                return None
             response.raise_for_status()
             
             data = response.json()
