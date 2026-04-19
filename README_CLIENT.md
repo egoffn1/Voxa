@@ -55,15 +55,20 @@ pip install pipwin
 pipwin install pyaudio
 ```
 
-#### Вариант 2: sounddevice (рекомендуется для Linux)
-
-Более простой вариант для Linux, не требует системных зависимостей:
+#### Вариант 2: sounddevice (альтернатива)
 
 ```bash
 pip install sounddevice numpy
 ```
 
-**Примечание для Bazzite/Fedora Atomic:** Если у вас возникают проблемы с установкой PyAudio, используйте sounddevice — он проще в установке и работает без системных библиотек.
+**Примечание для Bazzite/Fedora Atomic:** sounddevice также требует библиотеку PortAudio. Если при запуске вы видите ошибку `OSError: PortAudio library not found`, выполните:
+
+```bash
+sudo rpm-ostree install portaudio
+systemctl reboot
+```
+
+После перезагрузки sounddevice заработает.
 
 ## 🚀 Установка
 
@@ -222,22 +227,57 @@ Voxa/
 
 ## 🔧 Решение проблем
 
-### Микрофон не работает / Ошибка импорта PyAudio
+### Микрофон не работает / Ошибка импорта PyAudio или sounddevice
 
-**Для Bazzite/Fedora Atomic:**
+**Важно:** Оба аудио-бэкенда (PyAudio и sounddevice) требуют системную библиотеку **PortAudio**.
 
-У вас есть два варианта:
+#### Быстрое решение: Текстовый режим
 
-#### Вариант A: Использовать sounddevice (рекомендуется)
+Если вы не хотите устанавливать системные зависимости, клиент автоматически запустится в текстовом режиме. Просто введите команду:
+
+```bash
+python voxa_client.py
+```
+
+Если аудио-библиотеки недоступны, вы увидите сообщение:
+```
+⚠️ Режим: ТОЛЬКО ТЕКСТОВЫЙ (установите SpeechRecognition для голоса)
+⌨️ Режим: ТЕКСТОВЫЙ (микрофон недоступен)
+```
+
+Клиент будет работать, запрашивая текст через консоль.
+
+#### Вариант A: Использовать sounddevice
 
 1. Убедитесь, что установлен `sounddevice`:
    ```bash
    pip install sounddevice numpy
    ```
 
-2. Запустите клиента — он автоматически использует sounddevice если PyAudio недоступен.
+2. Если при запуске возникает ошибка `OSError: PortAudio library not found`, установите PortAudio:
 
-#### Вариант B: Установить PyAudio через rpm-ostree
+   **Для Bazzite/Fedora Atomic:**
+   ```bash
+   sudo rpm-ostree install portaudio
+   systemctl reboot
+   ```
+   
+   > **Важно:** На Bazzite (Fedora Atomic) команда `rpm-ostree` требует прав root. Введите пароль администратора при запросе.
+   
+   > **Примечание:** Если вы видите сообщение `"portaudio" is already provided by ...`, используйте флаг `--allow-inactive`:
+   > ```bash
+   > sudo rpm-ostree install portaudio --allow-inactive
+   > systemctl reboot
+   > ```
+
+3. После перезагрузки проверьте работу клиента:
+   ```bash
+   python voxa_client.py
+   ```
+
+#### Вариант B: Установить PyAudio
+
+**Для Bazzite/Fedora Atomic:**
 
 1. Выполните команду для установки системных зависимостей:
    ```bash
@@ -245,6 +285,11 @@ Voxa/
    ```
    
    > **Важно:** На Bazzite (Fedora Atomic) команда `rpm-ostree` требует прав root. Возможно, вам потребуется ввести пароль администратора или запустить терминал в режиме разработчика.
+   
+   > **Если порт уже установлен:** Если вы видите ошибку `"portaudio" is already provided by ...`, используйте:
+   > ```bash
+   > sudo rpm-ostree install portaudio-devel python3-pyaudio --allow-inactive
+   > ```
 
 2. После успешной установки перезагрузите систему:
    ```bash

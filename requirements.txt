@@ -11,12 +11,20 @@ pyttsx3>=2.90
 requests>=2.31.0
 
 # Audio dependencies для микрофона:
-# Вариант 1: PyAudio (требует системную библиотеку PortAudio)
-#   - Linux (Fedora/Bazzite): rpm-ostree install portaudio-devel python3-pyaudio
+# ВАЖНО: И PyAudio, и sounddevice требуют системную библиотеку PortAudio.
+#
+# Вариант 1: PyAudio (классический метод)
+#   - Linux (Fedora/Bazzite): sudo rpm-ostree install portaudio-devel python3-pyaudio
 #   - Debian/Ubuntu: sudo apt-get install portaudio19-dev python3-pyaudio
 #   - macOS: brew install portaudio && pip install pyaudio
 #   - Windows: pip install pipwin && pipwin install pyaudio
 # pyaudio>=0.2.13
 
-# Вариант 2: sounddevice (альтернатива для Linux, проще в установке)
+# Вариант 2: sounddevice (альтернатива, также требует PortAudio)
+# Если при запуске ошибка "PortAudio library not found":
+#   - Bazzite/Fedora: sudo rpm-ostree install portaudio && systemctl reboot
 sounddevice>=0.4.6
+numpy>=1.20.0
+
+# Если вы не хотите устанавливать PortAudio, клиент автоматически запустится
+# в текстовом режиме (ввод текста с клавиатуры без голосового ввода).

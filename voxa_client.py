@@ -7,10 +7,12 @@ Voxa Client - Локальный клиент для голосового асс
 - Отправляет текст на сервер Voxa (HTTP POST запрос к эндпоинту /chat)
 - Принимает ответ от сервера и озвучивает его с помощью синтеза речи
 - Поддерживает локальные команды (выход, повтори) и корректно обрабатывает серверные команды
+- Работает в текстовом режиме, если аудио-библиотеки недоступны
 
 Поддерживаемые аудио-бэкенды:
 - PyAudio (требуется системная библиотека PortAudio)
-- sounddevice (альтернатива для Linux, проще в установке)
+- sounddevice (альтернатива для Linux, требует PortAudio)
+- Текстовый режим (работает везде)
 """
 
 import sys
@@ -19,17 +21,52 @@ import json
 import time
 from typing import Optional
 
-import speech_recognition as sr
-import pyttsx3
-import requests
+# Импорт requests (обязательная зависимость)
+try:
+    import requests
+except ImportError:
+    print("❌ Ошибка: не установлен модуль 'requests'. Выполните: pip install requests")
+    sys.exit(1)
 
-# Попытка импорта sounddevice для альтернативного метода прослушивания
+# Попытка импорта speech_recognition
+speech_recognition_available = False
+sr = None
+try:
+    import speech_recognition as sr
+    speech_recognition_available = True
+except ImportError:
+    print("⚠️ Модуль 'speech_recognition' не установлен. Будет доступен только текстовый режим.")
+    print("   Для установки: pip install SpeechRecognition")
+
+# Попытка импорта pyttsx3
+pyttsx3_available = False
+pyttsx3 = None
+try:
+    import pyttsx3
+    pyttsx3_available = True
+except ImportError:
+    print("⚠️ Модуль 'pyttsx3' не установлен. Ответы будут только в тексте.")
+    print("   Для установки: pip install pyttsx3")
+
+# Попытка импорта sounddevice и numpy (для альтернативного метода записи)
+sounddevice_available = False
+sd = None
+np = None
 try:
     import sounddevice as sd
     import numpy as np
-    SOUNDDEVICE_AVAILABLE = True
+    sounddevice_available = True
 except ImportError:
-    SOUNDDEVICE_AVAILABLE = False
+    pass
+except OSError as e:
+    # PortAudio библиотека не найдена
+    if "PortAudio" in str(e):
+        print(f"⚠️ sounddevice установлен, но библиотека PortAudio не найдена: {e}")
+        print("   Для Bazzite/Fedora: sudo rpm-ostree install portaudio")
+        print("   После установки перезагрузите систему: systemctl reboot")
+        sounddevice_available = False
+    else:
+        raise
 
 from config import (
     SERVER_URL,
@@ -51,54 +88,62 @@ class VoxaClient:
     def __init__(self):
         self.session_id = str(uuid.uuid4())
         self.last_response: Optional[str] = None
-        self.recognizer = sr.Recognizer()
-        self.microphone: Optional[sr.Microphone] = None
-        self.engine: Optional[pyttsx3.Engine] = None
+        self.recognizer = sr.Recognizer() if sr else None
+        self.microphone = None
+        self.engine = None
         
-        # Настройка распознавателя
-        self.recognizer.energy_threshold = ENERGY_THRESHOLD
-        self.recognizer.pause_threshold = PAUSE_THRESHOLD
+        # Настройка распознавателя (если доступен)
+        if self.recognizer:
+            self.recognizer.energy_threshold = ENERGY_THRESHOLD
+            self.recognizer.pause_threshold = PAUSE_THRESHOLD
 
     def setup_microphone(self) -> bool:
         """Проверка и настройка микрофона"""
+        if not speech_recognition_available:
+            print("⚠️ Распознавание речи недоступно. Будет использоваться текстовый режим.")
+            return False
+        
         # Попытка использовать стандартный Microphone (PyAudio)
         try:
-            self.microphone = sr.Microphone()
+            self.microphone = sr.Microphone()  # type: ignore
             # Калибровка фонового шума
             print("🎤 Калибровка микрофона (подождите 1 секунду)...")
-            with self.microphone as source:
-                self.recognizer.adjust_for_ambient_noise(source, duration=1)
+            with self.microphone as source:  # type: ignore
+                self.recognizer.adjust_for_ambient_noise(source, duration=1)  # type: ignore
             print("✅ Микрофон готов к работе (PyAudio)")
             return True
         except Exception as e:
             print(f"⚠️ Ошибка при инициализации PyAudio: {e}")
             
             # Если PyAudio не работает, пробуем sounddevice
-            if SOUNDDEVICE_AVAILABLE:
-                print("🔄 Пробуем альтернативный метод через sounddevice...")
-                # sounddevice не требует специальной инициализации для speech_recognition
-                # Мы будем использовать его в методе listen()
-                print("✅ sounddevice доступен. Будет использоваться альтернативный метод прослушивания.")
-                return True
+            if sounddevice_available:
+                print("🔄 sounddevice доступен, но требует PortAudio для работы с микрофоном.")
+                print("   Для полноценной работы установите PortAudio:")
+                print("   sudo rpm-ostree install portaudio && systemctl reboot")
+                return False
             else:
                 print("❌ Ни PyAudio, ни sounddevice не доступны.")
                 print("   Установите один из вариантов:")
-                print("   - PyAudio: rpm-ostree install portaudio-devel python3-pyaudio (Bazzite/Fedora)")
-                print("   - sounddevice: pip install sounddevice numpy")
+                print("   - PyAudio: sudo rpm-ostree install portaudio-devel python3-pyaudio (Bazzite/Fedora)")
+                print("   - sounddevice: pip install sounddevice numpy (но всё равно нужен PortAudio)")
                 return False
 
     def setup_tts(self) -> bool:
         """Настройка синтеза речи"""
+        if not pyttsx3_available:
+            print("⚠️ Синтез речи недоступен. Ответы будут выводиться только текстом.")
+            return False
+            
         try:
-            self.engine = pyttsx3.init()
-            self.engine.setProperty('rate', TTS_RATE)
-            self.engine.setProperty('volume', TTS_VOLUME)
+            self.engine = pyttsx3.init()  # type: ignore
+            self.engine.setProperty('rate', TTS_RATE)  # type: ignore
+            self.engine.setProperty('volume', TTS_VOLUME)  # type: ignore
             
             # Попытка выбрать русский голос
-            voices = self.engine.getProperty('voices')
+            voices = self.engine.getProperty('voices')  # type: ignore
             for voice in voices:
                 if 'ru' in voice.languages or 'Russian' in voice.name:
-                    self.engine.setProperty('voice', voice.id)
+                    self.engine.setProperty('voice', voice.id)  # type: ignore
                     break
             
             print("✅ Синтез речи настроен")
@@ -111,46 +156,44 @@ class VoxaClient:
         """
         Прослушивание микрофона и распознавание речи.
         
-        Поддерживает два метода:
-        1. Стандартный через PyAudio (sr.Microphone)
-        2. Альтернативный через sounddevice (для Linux без PyAudio)
+        Если аудио-библиотеки недоступны, запрашивает текст вручную.
         """
-        # Метод 1: Используем стандартный Microphone (PyAudio)
-        if self.microphone is not None:
+        # Если микрофон не настроен, используем текстовый ввод
+        if self.microphone is None or not speech_recognition_available:
             try:
-                with self.microphone as source:
-                    print("🎤 Говорите...")
-                    audio = self.recognizer.listen(source, timeout=10)
-                
-                return self._recognize_audio(audio)
-                
-            except sr.WaitTimeoutError:
-                print("⏱️ Время ожидания истекло. Попробуйте снова.")
+                text = input("📝 Введите текст (или 'выход'): ").strip()
+                return text if text else None
+            except EOFError:
                 return None
-            except Exception as e:
-                print(f"⚠️ Ошибка при прослушивании (PyAudio): {e}")
-                # Если есть sounddevice, пробуем альтернативный метод
-                if SOUNDDEVICE_AVAILABLE:
-                    print("🔄 Переключаемся на sounddevice...")
-                    return self._listen_with_sounddevice()
-                return None
+            except KeyboardInterrupt:
+                raise
         
-        # Метод 2: Используем sounddevice (если PyAudio недоступен)
-        elif SOUNDDEVICE_AVAILABLE:
-            return self._listen_with_sounddevice()
-        
-        else:
-            print("❌ Микрофон не инициализирован и нет доступных аудио-бэкендов.")
+        # Метод 1: Используем стандартный Microphone (PyAudio)
+        try:
+            with self.microphone as source:  # type: ignore
+                print("🎤 Говорите...")
+                audio = self.recognizer.listen(source, timeout=10)  # type: ignore
+            
+            return self._recognize_audio(audio)
+            
+        except sr.WaitTimeoutError:  # type: ignore
+            print("⏱️ Время ожидания истекло. Попробуйте снова.")
             return None
+        except Exception as e:
+            print(f"⚠️ Ошибка при прослушивании: {e}")
+            # Возвращаемся к текстовому вводу
+            try:
+                text = input("📝 Введите текст (или 'выход'): ").strip()
+                return text if text else None
+            except (EOFError, KeyboardInterrupt):
+                return None
 
     def _listen_with_sounddevice(self) -> Optional[str]:
         """
         Альтернативный метод прослушивания через sounddevice.
-        
-        Записывает аудио с микрофона используя sounddevice и numpy,
-        затем передаёт в speech_recognition для распознавания.
+        Требует установленную библиотеку PortAudio.
         """
-        if not SOUNDDEVICE_AVAILABLE:
+        if not sounddevice_available:
             print("❌ sounddevice недоступен.")
             return None
         
@@ -162,11 +205,11 @@ class VoxaClient:
             duration = 5  # Максимальная длительность записи (секунды)
             
             # Запись аудио с микрофона
-            audio_data = sd.rec(
+            audio_data = sd.rec(  # type: ignore
                 int(sample_rate * duration),
                 samplerate=sample_rate,
                 channels=1,
-                dtype=np.int16
+                dtype=np.int16  # type: ignore
             )
             
             # Ждём завершения записи или прерывания по тишине
@@ -184,7 +227,7 @@ class VoxaClient:
                 if len(audio_data) > int(sample_rate * 0.1):
                     # Получаем последние 0.1 секунды записи
                     recent_audio = audio_data[-int(sample_rate * 0.1):]
-                    rms = np.sqrt(np.mean(recent_audio ** 2))
+                    rms = np.sqrt(np.mean(recent_audio ** 2))  # type: ignore
                     
                     if rms > silence_threshold:
                         last_speech_time = time.time()
@@ -193,11 +236,11 @@ class VoxaClient:
                 
                 time.sleep(0.1)
             
-            sd.stop()
+            sd.stop()  # type: ignore
             
             # Преобразуем в формат для speech_recognition
             audio_bytes = audio_data.tobytes()
-            audio = sr.AudioData(audio_bytes, sample_rate, 2)  # 2 bytes per sample (int16)
+            audio = sr.AudioData(audio_bytes, sample_rate, 2)  # 2 bytes per sample (int16)  # type: ignore
             
             return self._recognize_audio(audio)
             
@@ -205,21 +248,24 @@ class VoxaClient:
             print(f"❌ Ошибка при прослушивании (sounddevice): {e}")
             return None
 
-    def _recognize_audio(self, audio: sr.AudioData) -> Optional[str]:
+    def _recognize_audio(self, audio) -> Optional[str]:  # type: ignore
         """
         Распознавание аудио с использованием Google Web Speech API.
         """
+        if not speech_recognition_available or not self.recognizer:
+            return None
+            
         print("⏳ Распознавание...")
         
         try:
             # Использование Google Web Speech API
-            text = self.recognizer.recognize_google(audio, language="ru-RU")
+            text = self.recognizer.recognize_google(audio, language="ru-RU")  # type: ignore
             return text.strip()
             
-        except sr.UnknownValueError:
+        except sr.UnknownValueError:  # type: ignore
             print("❓ Не удалось распознать речь. Попробуйте повторить.")
             return None
-        except sr.RequestError as e:
+        except sr.RequestError as e:  # type: ignore
             print(f"❌ Ошибка сервиса распознавания: {e}")
             return None
         except Exception as e:
@@ -235,8 +281,8 @@ class VoxaClient:
         
         if self.engine:
             try:
-                self.engine.say(text)
-                self.engine.runAndWait()
+                self.engine.say(text)  # type: ignore
+                self.engine.runAndWait()  # type: ignore
             except Exception as e:
                 print(f"⚠️ Ошибка синтеза речи: {e}")
 
@@ -306,25 +352,36 @@ class VoxaClient:
     def run(self) -> None:
         """Основной цикл работы клиента"""
         print("=" * 50)
-        print("🎙️  Voxa Client запущен")
+        print("🎙️ Voxa Client запущен")
         print(f"🔗 Сервер: {SERVER_URL}")
         print(f"🆔 Session ID: {self.session_id}")
+        
+        # Информируем о доступных режимах
+        if not speech_recognition_available:
+            print("⚠️ Режим: ТОЛЬКО ТЕКСТОВЫЙ (установите SpeechRecognition для голоса)")
+        elif self.setup_microphone():
+            print("🎤 Режим: ГОЛОСОВОЙ (PyAudio)")
+        else:
+            print("⌨️ Режим: ТЕКСТОВЫЙ (микрофон недоступен)")
+            
+        if not pyttsx3_available:
+            print("📝 Ответы: ТОЛЬКО ТЕКСТ (установите pyttsx3 для озвучки)")
+        else:
+            print("🔊 Ответы: С ОЗВУЧКОЙ")
+            
         print("=" * 50)
         
-        # Инициализация
-        if not self.setup_microphone():
-            print("❌ Не удалось инициализировать микрофон. Выход.")
-            return
+        # Инициализация TTS
+        self.setup_tts()
         
-        if not self.setup_tts():
-            print("❌ Не удалось инициализировать синтез речи. Выход.")
-            return
-        
-        self.speak("Voxa готова к работе. Говорите!")
+        if pyttsx3_available:
+            self.speak("Voxa готова к работе. Говорите!")
+        else:
+            print("\nVoxa готова к работе. Введите текст или 'выход'.\n")
         
         try:
             while True:
-                # Прослушивание
+                # Прослушивание или ввод текста
                 text = self.listen()
                 
                 if not text:
@@ -351,7 +408,10 @@ class VoxaClient:
         except KeyboardInterrupt:
             print("\n\n👋 Работа завершена пользователем")
         finally:
-            self.speak("До свидания!")
+            if pyttsx3_available:
+                self.speak("До свидания!")
+            else:
+                print("\n👋 До свидания!")
 
 
 def main():
