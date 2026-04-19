@@ -5,7 +5,18 @@ python-dotenv==1.0.0
 gunicorn==21.2.0
 
 # Client dependencies
-speech_recognition>=3.10.0
+# Правильное имя пакета в PyPI — SpeechRecognition (с заглавной S)
+SpeechRecognition>=3.10.0
 pyttsx3>=2.90
 requests>=2.31.0
-# PyAudio: install via system package manager or pipwin on Windows
+
+# Audio dependencies для микрофона:
+# Вариант 1: PyAudio (требует системную библиотеку PortAudio)
+#   - Linux (Fedora/Bazzite): rpm-ostree install portaudio-devel python3-pyaudio
+#   - Debian/Ubuntu: sudo apt-get install portaudio19-dev python3-pyaudio
+#   - macOS: brew install portaudio && pip install pyaudio
+#   - Windows: pip install pipwin && pipwin install pyaudio
+# pyaudio>=0.2.13
+
+# Вариант 2: sounddevice (альтернатива для Linux, проще в установке)
+sounddevice>=0.4.6

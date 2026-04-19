@@ -23,6 +23,48 @@
 - Интернет-соединение (для распознавания речи через Google API)
 - Доступ к серверу Voxa
 
+### Системные зависимости для работы с аудио
+
+Для работы микрофона требуется один из следующих вариантов:
+
+#### Вариант 1: PyAudio (классический, требует PortAudio)
+
+**Linux (Fedora/Bazzite):**
+```bash
+# Для Bazzite (Fedora Atomic) требуется rpm-ostree
+rpm-ostree install portaudio-devel python3-pyaudio
+# После установки перезагрузите систему:
+systemctl reboot
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt-get install portaudio19-dev python3-pyaudio
+pip install pyaudio
+```
+
+**macOS:**
+```bash
+brew install portaudio
+pip install pyaudio
+```
+
+**Windows:**
+```bash
+pip install pipwin
+pipwin install pyaudio
+```
+
+#### Вариант 2: sounddevice (рекомендуется для Linux)
+
+Более простой вариант для Linux, не требует системных зависимостей:
+
+```bash
+pip install sounddevice numpy
+```
+
+**Примечание для Bazzite/Fedora Atomic:** Если у вас возникают проблемы с установкой PyAudio, используйте sounddevice — он проще в установке и работает без системных библиотек.
+
 ## 🚀 Установка
 
 ### 1. Клонирование репозитория
@@ -52,9 +94,11 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-#### Установка PyAudio (дополнительно)
+Этот файл уже содержит все необходимые зависимости, включая `sounddevice` для альтернативного метода работы с микрофоном.
 
-PyAudio требуется для работы с микрофоном. Установка зависит от ОС:
+#### Если используете PyAudio (опционально)
+
+Если вы хотите использовать классический метод через PyAudio вместо sounddevice:
 
 **Windows:**
 ```bash
@@ -78,6 +122,17 @@ pip install pyaudio
 brew install portaudio
 pip install pyaudio
 ```
+
+**Linux (Fedora/Bazzite):**
+```bash
+# Для Bazzite требуется rpm-ostree
+rpm-ostree install portaudio-devel python3-pyaudio
+# После установки перезагрузите систему:
+systemctl reboot
+pip install pyaudio
+```
+
+> **💡 Совет для Bazzite/Fedora Atomic:** Рекомендуется использовать `sounddevice` вместо PyAudio, так как он не требует системных зависимостей и проще в установке. Просто выполните `pip install -r requirements.txt` — sounddevice уже включён в зависимости.
 
 ## ⚙️ Настройка
 
@@ -167,11 +222,44 @@ Voxa/
 
 ## 🔧 Решение проблем
 
-### Микрофон не работает
+### Микрофон не работает / Ошибка импорта PyAudio
 
-1. Проверьте подключение микрофона
-2. Убедитесь, что микрофон выбран устройством записи по умолчанию
-3. Проверьте разрешения на доступ к микрофону в настройках ОС
+**Для Bazzite/Fedora Atomic:**
+
+У вас есть два варианта:
+
+#### Вариант A: Использовать sounddevice (рекомендуется)
+
+1. Убедитесь, что установлен `sounddevice`:
+   ```bash
+   pip install sounddevice numpy
+   ```
+
+2. Запустите клиента — он автоматически использует sounddevice если PyAudio недоступен.
+
+#### Вариант B: Установить PyAudio через rpm-ostree
+
+1. Выполните команду для установки системных зависимостей:
+   ```bash
+   sudo rpm-ostree install portaudio-devel python3-pyaudio
+   ```
+   
+   > **Важно:** На Bazzite (Fedora Atomic) команда `rpm-ostree` требует прав root. Возможно, вам потребуется ввести пароль администратора или запустить терминал в режиме разработчика.
+
+2. После успешной установки перезагрузите систему:
+   ```bash
+   systemctl reboot
+   ```
+
+3. После перезагрузки установите Python-пакет:
+   ```bash
+   pip install pyaudio
+   ```
+
+4. Проверьте работу клиента:
+   ```bash
+   python voxa_client.py
+   ```
 
 ### Ошибка распознавания речи
 
