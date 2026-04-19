@@ -1,0 +1,11 @@
+flask==3.0.0
+flask-cors==4.0.0
+mistralai==1.2.6
+python-dotenv==1.0.0
+gunicorn==21.2.0
+
+# Client dependencies
+speech_recognition>=3.10.0
+pyttsx3>=2.90
+requests>=2.31.0
+# PyAudio: install via system package manager or pipwin on Windows
