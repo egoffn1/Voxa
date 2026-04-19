@@ -295,13 +295,22 @@ class VoxaClient:
             "session_id": self.session_id
         }
         
+        headers = {
+            "Content-Type": "application/json"
+        }
+        
         try:
-            response = requests.post(url, json=payload, timeout=30)
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
             
-            # Проверка статуса ответа
-            if response.status_code == 400:
-                print(f"⚠️ Детали ошибки от сервера: {response.text}")
-                return None
+            # Логируем статус и ответ для отладки
+            if not response.ok:
+                print(f"⚠️ Статус ответа: {response.status_code}")
+                try:
+                    error_detail = response.json()
+                    print(f"⚠️ Детали ошибки от сервера: {error_detail}")
+                except:
+                    print(f"⚠️ Текст ошибки: {response.text}")
+            
             response.raise_for_status()
             
             data = response.json()
